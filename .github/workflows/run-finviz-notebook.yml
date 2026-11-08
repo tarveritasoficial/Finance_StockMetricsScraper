@@ -76,8 +76,9 @@ jobs:
           for ticker in "${STOCKS[@]}"; do
             ticker="$(echo "$ticker" | tr '[:lower:]' '[:upper:]' | xargs)"
             test -s "outputs/${ticker}_valuation_metrics.json" || { echo "Missing JSON for $ticker"; exit 1; }
-            test -s "outputs/${ticker}_valuation_multiples.png" || { echo "Missing PNG for $ticker"; exit 1; }
           done
+
+          test -s "outputs/Five_Stock_Valuation_Comparison.png" || { echo "Missing five-stock comparison chart"; exit 1; }
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
