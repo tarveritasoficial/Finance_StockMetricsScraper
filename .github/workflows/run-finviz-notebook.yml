@@ -45,6 +45,13 @@ jobs:
             --output-dir ../outputs \
             --ExecutePreprocessor.timeout=600
 
+      - name: Commit generated JSON and chart to repository
+        if: success()
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update Finviz metrics for ${{ inputs.ticker }}"
+          file_pattern: "outputs/*.json outputs/*.png"
+
       - name: Upload notebook and generated outputs
         if: always()
         uses: actions/upload-artifact@v4
