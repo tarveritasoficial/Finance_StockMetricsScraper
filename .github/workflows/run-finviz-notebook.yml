@@ -45,12 +45,31 @@ jobs:
             --output-dir ../outputs \
             --ExecutePreprocessor.timeout=600
 
-      - name: Commit generated JSON and chart to repository
+      - name: Commit and push JSON and PNG to repository
         if: success()
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Update Finviz metrics for ${{ inputs.ticker }}"
-          file_pattern: "outputs/*.json outputs/*.png"
+        env:
+          TICKER: ${{ inputs.ticker }}
+        run: |
+          set -euo pipefail
+          JSON_FILE="outputs/${TICKER}_valuation_metrics.json"
+          PNG_FILE="outputs/${TICKER}_valuation_multiples.png"
+
+          echo "Checking generated files..."
+          test -s "$JSON_FILE" || { echo "Missing or empty JSON: $JSON_FILE"; exit 1; }
+          test -s "$PNG_FILE" || { echo "Missing or empty PNG: $PNG_FILE"; exit 1; }
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- "$JSON_FILE" "$PNG_FILE"
+          git status --short
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit; repository already contains the latest outputs."
+          else
+            git commit -m "Update Finviz metrics for ${TICKER}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
 
       - name: Upload notebook and generated outputs
         if: always()
