@@ -3,10 +3,30 @@ name: Run Finviz Stock Metrics
 on:
   workflow_dispatch:
     inputs:
-      ticker:
-        description: "Stock ticker to retrieve from Finviz"
+      ticker_1:
+        description: "Stock 1 (ticker)"
         required: true
         default: "AMD"
+        type: string
+      ticker_2:
+        description: "Stock 2 (ticker)"
+        required: true
+        default: "AAPL"
+        type: string
+      ticker_3:
+        description: "Stock 3 (ticker)"
+        required: true
+        default: "MSFT"
+        type: string
+      ticker_4:
+        description: "Stock 4 (ticker)"
+        required: true
+        default: "NVDA"
+        type: string
+      ticker_5:
+        description: "Stock 5 (ticker)"
+        required: true
+        default: "GOOGL"
         type: string
 
 permissions:
@@ -15,7 +35,7 @@ permissions:
 jobs:
   run-notebook:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -33,41 +53,41 @@ jobs:
           python -m pip install -r requirements.txt
           python -m playwright install --with-deps chromium
 
-      - name: Execute notebook
+      - name: Execute notebook for five stocks
         working-directory: notebooks
         env:
-          TICKER: ${{ inputs.ticker }}
+          TICKERS: ${{ inputs.ticker_1 }},${{ inputs.ticker_2 }},${{ inputs.ticker_3 }},${{ inputs.ticker_4 }},${{ inputs.ticker_5 }}
         run: |
           jupyter nbconvert \
             --to notebook \
             --execute Finviz_Stock_Metrics.ipynb \
             --output Finviz_Stock_Metrics_executed.ipynb \
             --output-dir ../outputs \
-            --ExecutePreprocessor.timeout=600
+            --ExecutePreprocessor.timeout=1200
 
       - name: Commit and push JSON and PNG to repository
         if: success()
         env:
-          TICKER: ${{ inputs.ticker }}
+          TICKERS: ${{ inputs.ticker_1 }},${{ inputs.ticker_2 }},${{ inputs.ticker_3 }},${{ inputs.ticker_4 }},${{ inputs.ticker_5 }}
         run: |
           set -euo pipefail
-          JSON_FILE="outputs/${TICKER}_valuation_metrics.json"
-          PNG_FILE="outputs/${TICKER}_valuation_multiples.png"
+          IFS=',' read -ra STOCKS <<< "$TICKERS"
 
-          echo "Checking generated files..."
-          test -s "$JSON_FILE" || { echo "Missing or empty JSON: $JSON_FILE"; exit 1; }
-          test -s "$PNG_FILE" || { echo "Missing or empty PNG: $PNG_FILE"; exit 1; }
+          for ticker in "${STOCKS[@]}"; do
+            ticker="$(echo "$ticker" | tr '[:lower:]' '[:upper:]' | xargs)"
+            test -s "outputs/${ticker}_valuation_metrics.json" || { echo "Missing JSON for $ticker"; exit 1; }
+            test -s "outputs/${ticker}_valuation_multiples.png" || { echo "Missing PNG for $ticker"; exit 1; }
+          done
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -f -- "$JSON_FILE" "$PNG_FILE"
+          git add -f -- outputs/*.json outputs/*.png
           git status --short
 
           if git diff --cached --quiet; then
-            echo "No changes to commit; repository already contains the latest outputs."
+            echo "No changes to commit."
           else
-            git commit -m "Update Finviz metrics for ${TICKER}"
+            git commit -m "Update Finviz metrics for five selected stocks"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
@@ -75,8 +95,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: finviz-${{ inputs.ticker }}-results
-          path: |
-            outputs/
+          name: finviz-five-stock-results
+          path: outputs/
           if-no-files-found: warn
           retention-days: 14
